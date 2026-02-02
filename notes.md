@@ -19,7 +19,7 @@ Study Hours (14):
 - Here is Exam guide: https://github.com/cncf/curriculum
 
 
-Sandsbox or hands on: 
+Sandbox or hands on: ..... 
 
 Learning: https://www.exampro.co
 Roadmap: 
@@ -383,7 +383,7 @@ it goes to kube proxy then look up in iptables to find which pod/container the a
 - A deployment will always create and manage a ReplicaSet. 
 - A ReplicaSet will manage replicas of pod.
 
-[Image](./images/deployment.png)
+![Image](./images/deployment.png)
 
 [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
 [Kubernetes: Deployment Strategies types, and Argo Rollouts](https://rtfm.co.ua/en/kubernetes-deployment-strategies-types-and-argo-rollouts/)
@@ -392,23 +392,119 @@ it goes to kube proxy then look up in iptables to find which pod/container the a
 
 # Replica Sets
 
+- ReplicaSet is a way to maintain a desired amount of redundant pods (replicas) to provide a guarantee of availability.
+- All pods are replica there is no main pod because it is a distributed system.
+- The pod field `metadata.ownerReferences` determines the link from a pod to a ReplicaSet. (`kubectl describe ...` will show it up)
+- It is not recommended to directly create ReplicaSets. Instead, a Deployment can create and manage a ReplicaSet for you.
+  - The idea is if replica set is killed, deployment can restart it again
+- Horizontal Pod AutoScaler (HPA) can be used to autoscale a ReplicaSet
+
+![Image](./images/replica-sets.png)
+
+[ReplicaSet](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/)
+[Relationship between HPA & ReplicaSets](https://stackoverflow.com/questions/66431556/what-is-the-relationship-between-the-hpa-and-replicaset-in-kubernetes)
 
 ---
 
 # Stateful vs Stateless
 
+- Stateless 
+  - Where we use `ReplicaSets` 
+  - Every request does not care (forgets) about the previous or current state 
+  - Web-apps that store sessions outside of the web-apps virtual machine (database or cookies) will be stateless web-apps 
+  - Example: Send Request to any server, it doesn’t matter
+
+![image](./images/stateless-request-to-server.png)
+- Stateful 
+  - Where we use `StatefulSets` 
+  - Every request relies on state data (remembers) All databases are stateful 
+  - Monolithic web-apps that store session data in memory on a Virtual Machine are Stateful 
+  - Example: Remember to send writes only to primary database
+
+![image](./images/stateful-database.png)
+
 ---
 
 # Stateful Sets
 
-Need to be read more about it with an example
+- Stateful Sets are used when you need traffic to be sent to specific pods.
+- Stateful Set will always have:
+  - a unique and predictable name and address 
+  - ordinal index number assigned to each pod 
+  - a persistent volume attached, with a persistent link from pod to the storage 
+    - If a pod is rescheduled the original Persistent Volume (PV) will be mounted to ensure data integrity and consistency. 
+  - Stateful Set pods will always start in the same order and terminate in reverse order 
+- StatefulSets currently require a “headless” service to manage the identities 
+  - There is a headless service used to maintain the network identity of the pods
+  - and another service that provides read access to the pods
+
+Example:
+- DNS Hostname for Writes
+  - Writes will be directed to the Main pod by its DNS Hostname which is identified by a Headless Service
+- ClusterIP for Reads
+  - For read traffic, it can be distributed to all reading pods using a ClusterIP Service
+- Headless Service
+  - The headless service is a Service with ClusterIP set to none. 
+  - It does not provide load balancing 
+  - It does not provide a static IP address 
+  - A Headless Service is used to identify specific pods by assigning them a DNS record. 
+  - A Headless Service is required in order for a StatefulSet to work.
+- PVC (Persistent Volume Claim) and PV
+  - Each pod has its own volume. A Persistent Volume Claim can dynamically reference a Persistent Volume.
+
+![image](./images/stateful-sets.png)
+
+
+Reference
+[Running a Distributed Database on Kubernetes on Azure](https://lenadroid.github.io/posts/stateful-sets-kubernetes-azure.html)
+[Kubernetes – StatefulSets](https://theithollow.com/2019/04/01/kubernetes-statefulsets/)
+[Kubernetes StatefulSet - Examples & Best Practices](https://website.vcluster.com/blog/kubernetes-statefulset-examples-and-best-practices#:%7E:text=StatefulSets%20assign%20a%20sticky%20identity,Pod%20will%20not%20be%20created.)
+[Kubernetes Application Management — Stateful Services](https://alibaba-cloud.medium.com/kubernetes-application-management-stateful-services-7825e076bcb3)
 
 ---
 
 # Namespaces
+- A Namespace is a way to logically isolate resources within a Kubernetes Cluster.
+- It helps organize resources based on project, department, or any user-defined grouping.
 
-`kubectl get namespace`
-`kubectl create namespace <THE NAME>`
+- Default Namespaces in Kubernetes
+  - default - Where all pods and services run unless a namespace is specified. 
+  - kube-public - Stores publicly visible resources. 
+  - kube-system - Reserved for system objects created by Kubernetes. 
+  - kube-node-lease - Manages node lease objects to track node failures.
+
+Managing Namespaces
+- View all namespaces: `kubectl get namespace`
+- Create a new namespace: `kubectl create namespace <name>`
+- Delete a namespace: `kubectl delete namespace <name>`
+- Set a default namespace for a session: `kubectl config set-context --current --namespace=<name>`
+
+Namespace Scope and Resource Management
+- Namespaces ensure resource names are unique within a namespace but not across namespaces. 
+- Namespace-based scoping applies to namespaced objects like:
+  - Deployments 
+  - Services 
+- Cluster-wide objects (not tied to namespaces) include:
+  - Nodes 
+  - StorageClass 
+  - PersistentVolumes 
+
+Types of Namespace Objects
+- Namespaced Objects:
+  - Pods, Services, ConfigMaps, and Secrets exist within a single namespace. 
+  - They cannot span multiple namespaces. 
+  - To allow cross-namespace communication, you must explicitly configure network policies or DNS resolution.
+- Non-Namespaced (Cluster-Wide) Objects:
+- Volumes and Nodes are not namespace-bound as they apply cluster-wide.
+
+- Best Practices
+  - Use namespaces to group resources and enforce security policies. 
+  - Apply system quota restrictions to limit overuse of CPU, Memory, and Storage. 
+  - If no namespace is provided, resources default to the "default" namespace.
+
+Reference
+  [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)
+  [Kubernetes – Namespaces](https://theithollow.com/2019/02/06/kubernetes-namespaces/)
  
 ---
  
@@ -485,6 +581,105 @@ Need to be read more about it with an example
 
 ---
 
-## MicroK8s
+## MicroK8s 
+
+- Ubuntu
+  - Ubuntu is a Linux distribution based on Debian. 
+  - Ubuntu is known for:
+    - lots of Linux programs pre-installed 
+    - one of the easiest Linux distributions to use 
+    - More frequent updates 
+    - More progressive on new Linux programs and systems 
+    - It comes in many editions eg. Desktop, Server, Core
+  - Canonical is the company that publishers of Ubuntu 
+- Snap
+  - Snap is a package manager by Canonical that can be installed on many different distributions of Linux. 
+  - `--classic` Flag, allows access to your system’s resources in much the same way as the traditional package.
+  - Without the flag, snaps run in complete isolation.
+
+```bash
+sudo snap install <PACKAGE NAME> --classic
+```
+
+- MicroK8s
+  - MicroK8s is created by Canonical and is installed using Snap. 
+  - It is a Kubernetes distribution designed to run fast, self-healing, and highly available Kubernetes clusters. 
+  - It is optimized for quick and easy installation of single and multi-node clusters on multiple operating systems,
+  including macOS, Linux, and Windows (as long as you have snap).
+  - It is ideal for running Kubernetes in the cloud, local development environments, and Edge and IoT devices
+  - Microk8s is modular in design, you start with nothing and can enable addons to quickly use exactly what you need and nothing more:
 
 ---
+
+##  Managed Kubernetes Providers
+
+- Managed Kubernetes providers are Cloud Service Providers (CSPs) or platforms 
+  - that abstracts away the effort of setting up, maintaining (updating and patching) a cluster.
+  - They can easy autoscaling as well.
+
+- Some Kubernetes and CSP:
+  - Google Kubernetes Engine (GKE)
+    - The easiest to use with the richest amount of features
+    - Amazon Elastic Kubernetes Service (EKS)
+      - Difficult to use via the UI, powerful CLI tool
+      - Can be worth it for integrations with other AWS services
+    - Azure Kubernetes Service (AKS)
+      - Fairly easy to use. Unique service offers for debugging live containers.
+    - IBM Cloud Kubernetes Service
+      - Easy to use, not feature-rich. 
+      - More expensive than any other cloud service provider
+    - Oracle Container Engine for Kubernetes 
+      - Cost-effective for a cloud service provider, worst UI, limited options 
+    - DigitalOcean Kubernetes (DOKS)
+      - Very easy to use, predictable spend. 
+      - Beautiful UI
+    - CIVO Kubernetes 
+      - Most cost-effective. Simple UI 
+      - A cloud platform specifically focused on just Kubernetes.
+
+---
+
+## Management Layers
+
+[CNCF Certified Distribution](https://www.cncf.io/training/certification/software-conformance/)
+
+---
+
+# Runtimes
+
+---
+
+## Container Runtime Interface
+
+---
+
+## ContainerD
+
+---
+
+## CIR-O
+
+---
+
+## Container Runtimes
+
+---
+
+## CGroups
+
+---
+
+## Linux Containers 
+
+---
+
+# Storage
+
+## Container Storage Interface (CSI)
+## Kubernetes Backing Store and etcd
+## Rook and MinIO
+## Volumes
+## Persistent Volume (PV)
+## Storage Classes
+## Persistent Volume Claim (PVC)
+## ConfigMaps
